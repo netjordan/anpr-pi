@@ -24,12 +24,15 @@ jobs:
           sudo apt-get install -y \
             binfmt-support \
             coreutils \
+            qemu-user \
+            qemu-user-binfmt \
             qemu-user-static \
             rsync \
             xz-utils \
             zip
           sudo update-binfmts --enable qemu-arm || true
           sudo update-binfmts --enable qemu-aarch64 || true
+          command -v qemu-arm
           command -v qemu-arm-static
           update-binfmts --display qemu-arm || true
 
