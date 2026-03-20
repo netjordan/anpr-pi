@@ -12,7 +12,7 @@ jobs:
   build-image:
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -65,3 +65,11 @@ jobs:
           name: anpr-pi-image
           path: artifacts/
           if-no-files-found: error
+
+      - name: Publish release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --notes "Flash the .img.xz file directly to a Raspberry Pi SD card." || true
+          gh release upload "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --clobber
