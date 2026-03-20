@@ -106,13 +106,15 @@ sudo systemctl enable --now anpr-pi.service
 
 ## Prebuilt SD Card Image
 
-The repository includes a GitHub Actions workflow that builds a Raspberry Pi OS `.img.xz` artifact using `pi-gen`.
+The repository includes a GitHub Actions workflow that downloads an official Raspberry Pi OS Lite image, injects this project into it, and prepares a first-boot bootstrap service.
 
 What the image does:
 
 - starts from Raspberry Pi OS Lite
-- installs OpenALPR and runtime dependencies
 - copies this project into `/opt/anpr-pi`
+- enables SSH and writes the default `pi` user password hash into the boot partition
+- installs a first-boot bootstrap service
+- on first boot, installs OpenALPR and runtime dependencies
 - creates `/opt/anpr-pi/config.yaml` from the sample config
 - installs and enables `anpr-pi.service`
 - boots directly into the ANPR service on first startup
@@ -132,10 +134,10 @@ Workflow:
 - default webcam device: `/dev/video0`
 - service user: `pi`
 - no desktop UI is installed
-- SSH is left disabled by default in the baked image
+- SSH is enabled in the baked image
 - the default local password in the baked image is `raspberry`; change it immediately on first login if you keep using the image
 
-One constraint matters here: OpenALPR is not built into Raspberry Pi OS. The image build installs it during image creation. If the upstream package disappears or changes in a later Raspberry Pi OS release, the image workflow will need a small adjustment.
+One constraint matters here: OpenALPR is not built into Raspberry Pi OS. The baked image installs it on first boot. If the upstream package disappears or changes in a later Raspberry Pi OS release, the bootstrap script will need a small adjustment.
 
 ## Querying Seen Plates
 

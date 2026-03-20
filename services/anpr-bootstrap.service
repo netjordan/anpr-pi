@@ -1,0 +1,12 @@
+[Unit]
+Description=Bootstrap ANPR Pi software on first boot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/anpr-pi/bootstrap.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

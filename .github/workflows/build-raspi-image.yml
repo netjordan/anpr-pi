@@ -14,44 +14,90 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      BASE_IMAGE_URL: https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64-lite.img.xz
+      IMAGE_NAME: anpr-pi-bookworm-arm64
+      HOSTNAME: anprpi
+      USERNAME: pi
+      PASSWORD: raspberry
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Raspberry Pi OS image
-        id: build
-        uses: usimd/pi-gen-action@v1
-        with:
-          image-name: anpr-pi
-          hostname: anprpi
-          username: pi
-          password: raspberry
-          disable-first-boot-user-rename: 1
-          enable-ssh: 0
-          compression: xz
-          compression-level: 6
-          release: bookworm
-          pi-gen-version: arm64
-          locale: en_GB.UTF-8
-          keyboard-keymap: gb
-          keyboard-layout: English (UK)
-          timezone: Europe/London
-          stage-list: stage0 stage1 stage2 ./image/pi-gen/stage-anpr
-          export-last-stage-only: true
-          increase-runner-disk-size: true
-          verbose-output: true
-
-      - name: Collect image artifacts
+      - name: Install image tooling
         run: |
-          mkdir -p artifacts
-          cp "${{ steps.build.outputs.image-path }}" artifacts/
-          sha256sum artifacts/* > artifacts/SHA256SUMS.txt
+          sudo apt-get update
+          sudo apt-get install -y fdisk kpartx openssl rsync xz-utils dosfstools
+
+      - name: Download Raspberry Pi OS base image
+        run: |
+          curl -fsSL "${BASE_IMAGE_URL}" -o base.img.xz
+          xz -d -T0 base.img.xz
+          mv base.img "${IMAGE_NAME}.img"
+
+      - name: Inject application and first-boot bootstrap
+        run: |
+          set -euo pipefail
+
+          LOOP_DEVICE=""
+
+          cleanup() {
+            set +e
+            mountpoint -q /mnt/anpr-root && sudo umount /mnt/anpr-root
+            mountpoint -q /mnt/anpr-boot && sudo umount /mnt/anpr-boot
+            [ -n "${LOOP_DEVICE}" ] && sudo losetup -d "${LOOP_DEVICE}"
+          }
+
+          trap cleanup EXIT
+
+          LOOP_DEVICE="$(sudo losetup --find --partscan --show "${IMAGE_NAME}.img")"
+          sudo mkdir -p /mnt/anpr-boot /mnt/anpr-root
+          sudo mount "${LOOP_DEVICE}p1" /mnt/anpr-boot
+          sudo mount "${LOOP_DEVICE}p2" /mnt/anpr-root
+
+          sudo mkdir -p /mnt/anpr-root/opt/anpr-pi
+          sudo rsync -a \
+            --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'artifacts' \
+            --exclude 'data' \
+            ./ /mnt/anpr-root/opt/anpr-pi/
+
+          sudo install -m 0755 image/firstboot/bootstrap.sh /mnt/anpr-root/opt/anpr-pi/bootstrap.sh
+          sudo install -m 0644 services/anpr-pi.service /mnt/anpr-root/etc/systemd/system/anpr-pi.service
+          sudo install -m 0644 services/anpr-bootstrap.service /mnt/anpr-root/etc/systemd/system/anpr-bootstrap.service
+          sudo mkdir -p /mnt/anpr-root/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /etc/systemd/system/anpr-bootstrap.service /mnt/anpr-root/etc/systemd/system/multi-user.target.wants/anpr-bootstrap.service
+          sudo cp config.example.yaml /mnt/anpr-root/opt/anpr-pi/config.yaml
+          sudo chown -R 1000:1000 /mnt/anpr-root/opt/anpr-pi
+
+          PASSWORD_HASH="$(openssl passwd -6 "${PASSWORD}")"
+          printf '%s:%s\n' "${USERNAME}" "${PASSWORD_HASH}" | sudo tee /mnt/anpr-boot/userconf.txt >/dev/null
+          sudo touch /mnt/anpr-boot/ssh
+
+          echo "${HOSTNAME}" | sudo tee /mnt/anpr-root/etc/hostname >/dev/null
+          if grep -q 'raspberrypi' /mnt/anpr-root/etc/hosts; then
+            sudo sed -i "s/raspberrypi/${HOSTNAME}/g" /mnt/anpr-root/etc/hosts
+          else
+            printf '127.0.1.1\t%s\n' "${HOSTNAME}" | sudo tee -a /mnt/anpr-root/etc/hosts >/dev/null
+          fi
+
+          sync
+
+      - name: Compress image artifact
+        run: |
+          xz -T0 -6 "${IMAGE_NAME}.img"
+          sha256sum "${IMAGE_NAME}.img.xz" > SHA256SUMS.txt
 
       - name: Upload image artifacts
         uses: actions/upload-artifact@v4
         with:
           name: anpr-pi-image
-          path: artifacts/
+          path: |
+            ${IMAGE_NAME}.img.xz
+            SHA256SUMS.txt
           if-no-files-found: error
 
       - name: Publish release assets
@@ -59,5 +105,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --notes "Flash the .img.xz file directly to a Raspberry Pi SD card." || true
-          gh release upload "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --clobber
+          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --notes "Flash the .img.xz file to an SD card. On first boot the Pi installs runtime packages, enables the ANPR service, and starts it automatically." || true
+          gh release upload "${GITHUB_REF_NAME}" "${IMAGE_NAME}.img.xz" SHA256SUMS.txt --repo "${GITHUB_REPOSITORY}" --clobber
