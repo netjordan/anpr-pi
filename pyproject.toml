@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anpr-pi"
+version = "0.1.0"
+description = "Offline Raspberry Pi ANPR service for webcam plate logging and repeat-hit alerts."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "opencv-python-headless>=4.10.0.84",
+  "PyYAML>=6.0.2",
+]
+
+[project.scripts]
+anpr-pi = "anpr_pi.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

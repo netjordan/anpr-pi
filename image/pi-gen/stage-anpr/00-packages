@@ -1,0 +1,12 @@
+python3
+python3-venv
+python3-pip
+python3-opencv
+python3-yaml
+sqlite3
+sox
+libsox-fmt-all
+alsa-utils
+openalpr
+openalpr-daemon
+openalpr-utils

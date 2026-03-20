@@ -1,0 +1,30 @@
+camera:
+  device: 0
+  width: 1280
+  height: 720
+  fps: 15
+
+pipeline:
+  frame_interval_ms: 750
+  plate_cooldown_seconds: 20
+  min_confidence: 78.0
+  save_snapshots: true
+  snapshot_dir: ./data/snapshots
+  overlay_preview: false
+
+storage:
+  database_path: ./data/anpr.db
+
+alerts:
+  enabled: true
+  repeat_only: true
+  sound_path: ./data/repeat_alert.wav
+  frequency_hz: 880
+  duration_ms: 180
+  repeat_count: 2
+  repeat_gap_ms: 100
+
+anpr:
+  command: alpr
+  country_scope: eu
+  top_n: 5

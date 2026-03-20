@@ -1,0 +1,67 @@
+name: Build Raspberry Pi Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  build-image:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare workspace packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coreutils rsync xz-utils zip
+
+      - name: Clone pi-gen
+        run: |
+          git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git .pi-gen
+
+      - name: Inject custom stage and application files
+        run: |
+          mkdir -p .pi-gen/stage-anpr/files/opt/anpr-pi
+          rsync -a \
+            --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.pi-gen' \
+            --exclude 'deploy' \
+            --exclude 'dist' \
+            --exclude 'build' \
+            --exclude '__pycache__' \
+            --exclude 'data' \
+            ./ .pi-gen/stage-anpr/files/opt/anpr-pi/
+          rsync -a image/pi-gen/ .pi-gen/
+
+      - name: Build image with pi-gen
+        run: |
+          cd .pi-gen
+          sudo ./build-docker.sh
+
+      - name: Collect image artifacts
+        run: |
+          mkdir -p artifacts
+          find .pi-gen/deploy -maxdepth 1 -type f \( -name '*.img' -o -name '*.img.xz' -o -name '*.zip' \) -exec cp {} artifacts/ \;
+          if compgen -G "artifacts/*.img" > /dev/null; then
+            for image in artifacts/*.img; do
+              xz -T0 -9 "$image"
+            done
+          fi
+          sha256sum artifacts/* > artifacts/SHA256SUMS.txt
+
+      - name: Upload image artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: anpr-pi-image
+          path: artifacts/
+          if-no-files-found: error

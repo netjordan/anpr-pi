@@ -1,0 +1,15 @@
+[Unit]
+Description=Raspberry Pi ANPR Recorder
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/anpr-pi
+ExecStart=/opt/anpr-pi/.venv/bin/anpr-pi --config /opt/anpr-pi/config.yaml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
