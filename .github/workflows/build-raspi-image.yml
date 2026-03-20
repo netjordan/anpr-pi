@@ -18,64 +18,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare workspace packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            binfmt-support \
-            coreutils \
-            qemu-user \
-            qemu-user-binfmt \
-            rsync \
-            xz-utils \
-            zip
-          sudo update-binfmts --enable qemu-arm || true
-          sudo update-binfmts --enable qemu-aarch64 || true
-          command -v qemu-arm
-          command -v qemu-aarch64
-          update-binfmts --display qemu-arm || true
-          update-binfmts --display qemu-aarch64 || true
-
-      - name: Register QEMU binfmt handlers
-        run: |
-          sudo docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
-          ls -1 /proc/sys/fs/binfmt_misc || true
-          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 || true
-
-      - name: Clone pi-gen
-        run: |
-          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen.git .pi-gen
-
-      - name: Inject custom stage and application files
-        run: |
-          mkdir -p .pi-gen/stage-anpr/files/opt/anpr-pi
-          rsync -a \
-            --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude '.pi-gen' \
-            --exclude 'deploy' \
-            --exclude 'dist' \
-            --exclude 'build' \
-            --exclude '__pycache__' \
-            --exclude 'data' \
-            ./ .pi-gen/stage-anpr/files/opt/anpr-pi/
-          rsync -a image/pi-gen/ .pi-gen/
-
-      - name: Build image with pi-gen
-        run: |
-          cd .pi-gen
-          sudo ./build-docker.sh
+      - name: Build Raspberry Pi OS image
+        id: build
+        uses: usimd/pi-gen-action@v1
+        with:
+          image-name: anpr-pi
+          hostname: anprpi
+          username: pi
+          password: raspberry
+          disable-first-boot-user-rename: 1
+          enable-ssh: 0
+          compression: xz
+          compression-level: 6
+          release: bookworm
+          pi-gen-version: arm64
+          locale: en_GB.UTF-8
+          keyboard-keymap: gb
+          keyboard-layout: English (UK)
+          timezone: Europe/London
+          stage-list: stage0 stage1 stage2 ./image/pi-gen/stage-anpr
+          export-last-stage-only: true
+          increase-runner-disk-size: true
+          verbose-output: true
 
       - name: Collect image artifacts
         run: |
           mkdir -p artifacts
-          find .pi-gen/deploy -maxdepth 1 -type f \( -name '*.img' -o -name '*.img.xz' -o -name '*.zip' \) -exec cp {} artifacts/ \;
-          if compgen -G "artifacts/*.img" > /dev/null; then
-            for image in artifacts/*.img; do
-              xz -T0 -9 "$image"
-            done
-          fi
+          cp "${{ steps.build.outputs.image-path }}" artifacts/
           sha256sum artifacts/* > artifacts/SHA256SUMS.txt
 
       - name: Upload image artifacts
