@@ -21,7 +21,17 @@ jobs:
       - name: Prepare workspace packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y coreutils rsync xz-utils zip
+          sudo apt-get install -y \
+            binfmt-support \
+            coreutils \
+            qemu-user-static \
+            rsync \
+            xz-utils \
+            zip
+          sudo update-binfmts --enable qemu-arm || true
+          sudo update-binfmts --enable qemu-aarch64 || true
+          command -v qemu-arm-static
+          update-binfmts --display qemu-arm || true
 
       - name: Clone pi-gen
         run: |
