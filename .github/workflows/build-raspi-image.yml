@@ -36,7 +36,7 @@ jobs:
 
       - name: Clone pi-gen
         run: |
-          git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git .pi-gen
+          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen.git .pi-gen
 
       - name: Inject custom stage and application files
         run: |
