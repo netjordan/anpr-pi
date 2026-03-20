@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install image tooling
         run: |
@@ -95,7 +95,7 @@ jobs:
           sha256sum "${IMAGE_NAME}.img.xz" > SHA256SUMS.txt
 
       - name: Upload image artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: anpr-pi-image
           path: |
