@@ -63,6 +63,9 @@ jobs:
             --exclude '.github' \
             --exclude 'artifacts' \
             --exclude 'data' \
+            --exclude '*.img' \
+            --exclude '*.img.xz' \
+            --exclude 'SHA256SUMS.txt' \
             ./ /mnt/anpr-root/opt/anpr-pi/
 
           sudo install -m 0755 image/firstboot/bootstrap.sh /mnt/anpr-root/opt/anpr-pi/bootstrap.sh
