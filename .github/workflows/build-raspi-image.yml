@@ -32,7 +32,15 @@ jobs:
           sudo update-binfmts --enable qemu-arm || true
           sudo update-binfmts --enable qemu-aarch64 || true
           command -v qemu-arm
+          command -v qemu-aarch64
           update-binfmts --display qemu-arm || true
+          update-binfmts --display qemu-aarch64 || true
+
+      - name: Register QEMU binfmt handlers
+        run: |
+          sudo docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
+          ls -1 /proc/sys/fs/binfmt_misc || true
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 || true
 
       - name: Clone pi-gen
         run: |
